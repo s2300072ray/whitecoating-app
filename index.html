@@ -2,112 +2,115 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport"
+        content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
   <title>WhiteCoating – 收藏連結 & 任務</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <header class="topbar">
-    <div class="brand">
-      <div class="logo"></div>
-      <div class="titles">
-        <h1>WhiteCoating</h1>
-        <div class="subtitle">收藏連結 · 任務清單</div>
+  <!-- 將整個 App 鎖在 430px 內，以 iPhone 14/15 Plus 視覺為基準 -->
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="logo"></div>
+        <div class="titles">
+          <h1>WhiteCoating</h1>
+          <div class="subtitle">收藏連結 · 任務清單</div>
+        </div>
+        <div class="spacer"></div>
+        <button id="exportBtn" class="btn ghost">匯出</button>
+        <label class="btn ghost file">
+          匯入
+          <input id="importFile" type="file" accept="application/json" />
+        </label>
       </div>
-      <div class="spacer"></div>
-      <button id="exportBtn" class="btn ghost">匯出</button>
-      <label class="btn ghost file">
-        匯入
-        <input id="importFile" type="file" accept="application/json" />
-      </label>
+
+      <div class="filters">
+        <input id="q" class="input" placeholder="搜尋 標題／URL／標籤…" />
+        <select id="sort" class="input">
+          <option value="created_desc">最新在前</option>
+          <option value="created_asc">最舊在前</option>
+          <option value="title_asc">標題 A→Z</option>
+          <option value="title_desc">標題 Z→A</option>
+        </select>
+        <select id="filterCategorySelect" class="input"></select>
+        <input id="filterTag" class="input" placeholder="標籤過濾（包含）" />
+        <button id="clearFilters" class="btn ghost">清除</button>
+      </div>
+    </header>
+
+    <main class="wrap">
+      <!-- 以手機優先：單欄；桌機仍可維持雙欄，但寬度不超過 430 -->
+      <section class="col">
+        <div class="section card gradient">
+          <h2 class="section-title">新增連結</h2>
+          <div class="grid">
+            <input id="url" class="input" placeholder="貼上連結（Facebook / YouTube / Docs …）" />
+            <input id="title" class="input" placeholder="標題（可留空，預設用 URL）" />
+            <div class="row">
+              <select id="categorySelect" class="input grow"></select>
+              <button id="addCategoryBtn" class="btn ghost">＋分類</button>
+            </div>
+            <input id="tags" class="input" placeholder="標籤（逗號分隔：ai, 3d）" />
+          </div>
+          <div class="row mt">
+            <button id="addLink" class="btn primary">新增連結</button>
+            <div class="spacer"></div>
+            <span class="hint">舊連結標記天數</span>
+            <input id="staleDays" class="input num" type="number" min="1" value="30" />
+            <button id="applyStale" class="btn ghost">套用</button>
+          </div>
+        </div>
+
+        <h3 class="list-title">連結清單</h3>
+        <div id="list" class="stack"></div>
+      </section>
+
+      <section class="col">
+        <div class="section card gradient2">
+          <h2 class="section-title">新增任務</h2>
+          <div class="grid">
+            <input id="taskTitle" class="input" placeholder="任務內容" />
+            <input id="taskDue" class="input" type="date" />
+            <div class="row">
+              <select id="taskCategorySelect" class="input grow"></select>
+              <button id="addTaskCategoryBtn" class="btn ghost">＋分類</button>
+            </div>
+            <input id="taskTags" class="input" placeholder="標籤（逗號分隔）" />
+          </div>
+          <div class="row mt">
+            <button id="addTask" class="btn primary">新增任務</button>
+            <div class="spacer"></div>
+            <span class="hint">逾期標記天數</span>
+            <input id="overdueDays" class="input num" type="number" min="1" value="20" />
+          </div>
+        </div>
+
+        <div class="row sub-filters">
+          <select id="taskView" class="input">
+            <option value="all">全部</option>
+            <option value="open">未完成</option>
+            <option value="done">已完成</option>
+          </select>
+          <select id="taskSort" class="input">
+            <option value="due_asc">到期日 ↑</option>
+            <option value="due_desc">到期日 ↓</option>
+            <option value="created_desc">建立時間 ↓</option>
+          </select>
+          <button id="manageCatsBtn" class="btn ghost">分類管理</button>
+        </div>
+
+        <div id="taskList" class="stack"></div>
+      </section>
+    </main>
+
+    <!-- 手機捷徑 -->
+    <div class="fab">
+      <button id="fabAddLink" class="fab-btn">＋</button>
     </div>
 
-    <div class="filters">
-      <input id="q" class="input" placeholder="搜尋 標題／URL／標籤…" />
-      <select id="sort" class="input">
-        <option value="created_desc">最新在前</option>
-        <option value="created_asc">最舊在前</option>
-        <option value="title_asc">標題 A→Z</option>
-        <option value="title_desc">標題 Z→A</option>
-      </select>
-      <select id="filterCategorySelect" class="input"></select>
-      <input id="filterTag" class="input" placeholder="標籤過濾（包含）" />
-      <button id="clearFilters" class="btn ghost">清除</button>
-    </div>
-  </header>
-
-  <main class="wrap">
-    <!-- 左：連結 -->
-    <section class="col">
-      <div class="section card gradient">
-        <h2 class="section-title">新增連結</h2>
-        <div class="grid">
-          <input id="url" class="input" placeholder="貼上連結（Facebook / YouTube / Docs …）" />
-          <input id="title" class="input" placeholder="標題（可留空，預設用 URL）" />
-          <div class="row">
-            <select id="categorySelect" class="input grow"></select>
-            <button id="addCategoryBtn" class="btn ghost">＋分類</button>
-          </div>
-          <input id="tags" class="input" placeholder="標籤（逗號分隔：ai, 3d）" />
-        </div>
-        <div class="row mt">
-          <button id="addLink" class="btn primary">新增連結</button>
-          <div class="spacer"></div>
-          <span class="hint">舊連結標記天數</span>
-          <input id="staleDays" class="input num" type="number" min="1" value="30" />
-          <button id="applyStale" class="btn ghost">套用</button>
-        </div>
-      </div>
-
-      <h3 class="list-title">連結清單</h3>
-      <div id="list" class="stack"></div>
-    </section>
-
-    <!-- 右：任務 -->
-    <section class="col">
-      <div class="section card gradient2">
-        <h2 class="section-title">新增任務</h2>
-        <div class="grid">
-          <input id="taskTitle" class="input" placeholder="任務內容" />
-          <input id="taskDue" class="input" type="date" />
-          <div class="row">
-            <select id="taskCategorySelect" class="input grow"></select>
-            <button id="addTaskCategoryBtn" class="btn ghost">＋分類</button>
-          </div>
-          <input id="taskTags" class="input" placeholder="標籤（逗號分隔）" />
-        </div>
-        <div class="row mt">
-          <button id="addTask" class="btn primary">新增任務</button>
-          <div class="spacer"></div>
-          <span class="hint">逾期標記天數</span>
-          <input id="overdueDays" class="input num" type="number" min="1" value="20" />
-        </div>
-      </div>
-
-      <div class="row sub-filters">
-        <select id="taskView" class="input">
-          <option value="all">全部</option>
-          <option value="open">未完成</option>
-          <option value="done">已完成</option>
-        </select>
-        <select id="taskSort" class="input">
-          <option value="due_asc">到期日 ↑</option>
-          <option value="due_desc">到期日 ↓</option>
-          <option value="created_desc">建立時間 ↓</option>
-        </select>
-        <button id="manageCatsBtn" class="btn ghost">分類管理</button>
-      </div>
-
-      <div id="taskList" class="stack"></div>
-    </section>
-  </main>
-
-  <!-- 浮動新增（手機友善） -->
-  <div class="fab">
-    <button id="fabAddLink" class="fab-btn">＋</button>
+    <footer class="foot">© WhiteCoating · 全前端 · 本機儲存（localStorage）</footer>
   </div>
-
-  <footer class="foot">© WhiteCoating · 全前端 · 本機儲存（localStorage）</footer>
 
   <script src="app.js"></script>
 </body>

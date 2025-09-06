@@ -1,7 +1,5 @@
-/* =========================
-   WhiteCoating – 前端資料層
-   ========================= */
-const DB_KEY = 'whitecoating_local_v3';
+/* ===== 資料層 ===== */
+const DB_KEY = 'whitecoating_local_v4';
 const LINK_CAT_KEY = 'wc_link_categories_v1';
 const TASK_CAT_KEY = 'wc_task_categories_v1';
 
@@ -12,7 +10,6 @@ const state = { links: [], tasks: [], staleDays: 30, overdueDays: 20 };
 let linkCats = [];
 let taskCats = [];
 
-/* ---------- 工具 ---------- */
 const $ = (s)=>document.querySelector(s);
 const nowISO = ()=> new Date().toISOString();
 const uid = ()=> Math.random().toString(16).slice(2)+Date.now().toString(16);
@@ -20,21 +17,18 @@ const normTags = (s)=> (s||'').split(',').map(x=>x.trim()).filter(Boolean);
 const favicon = (url)=>{ try{ const u=new URL(url); return `https://www.google.com/s2/favicons?domain=${u.hostname}&sz=64`; }catch{ return '';} };
 const isStale = (iso)=> (Date.now()-new Date(iso)) / 86400000 >= state.staleDays;
 const isOverdue = (due)=> due && due < new Date().toISOString().slice(0,10);
+const tagClassByIndex = (i)=> i%2===0 ? 'blue' : 'green'; // 兩色交錯
 
-/* ---------- 讀寫儲存 ---------- */
 function loadDB(){
-  // 類別
   try{
     const L = JSON.parse(localStorage.getItem(LINK_CAT_KEY) || 'null');
     linkCats = Array.isArray(L) && L.length ? L : DEFAULT_LINK_CATS.slice();
   }catch{ linkCats = DEFAULT_LINK_CATS.slice(); }
-
   try{
     const T = JSON.parse(localStorage.getItem(TASK_CAT_KEY) || 'null');
     taskCats = Array.isArray(T) && T.length ? T : DEFAULT_TASK_CATS.slice();
   }catch{ taskCats = DEFAULT_TASK_CATS.slice(); }
 
-  // 資料
   const raw = localStorage.getItem(DB_KEY);
   if(raw){
     try{
@@ -48,16 +42,14 @@ function loadDB(){
     saveDB();
   }
 }
-function saveDB(){
-  localStorage.setItem(DB_KEY, JSON.stringify(state));
-}
+function saveDB(){ localStorage.setItem(DB_KEY, JSON.stringify(state)); }
 function saveCats(){
   localStorage.setItem(LINK_CAT_KEY, JSON.stringify(linkCats));
   localStorage.setItem(TASK_CAT_KEY, JSON.stringify(taskCats));
   renderCategorySelectors();
 }
 
-/* ---------- 分類 UI ---------- */
+/* ===== 分類 UI ===== */
 function renderCategorySelectors(){
   const mk = (arr, withAll=false)=>{
     const out = [];
@@ -78,7 +70,6 @@ function promptAddCategory(kind){
   saveCats();
 }
 function manageCategories(){
-  // 合併成一個視窗，先選管理哪一類
   const set = prompt('要管理哪一類？\n1 = 連結分類\n2 = 任務分類\n(其他取消)');
   if(set!=='1' && set!=='2') return;
   const isTask = set==='2';
@@ -98,13 +89,12 @@ function manageCategories(){
     if(!name) return alert('名稱不可為空');
     if(pool.includes(name) && name!==chosen) return alert('已存在相同名稱');
     pool[idx]=name;
-    // 將資料引用一併更新
     const apply = (arr)=> arr.forEach(x=>{ if(x.category===chosen) x.category=name; });
     if(isTask) apply(state.tasks); else apply(state.links);
     saveCats(); saveDB(); renderLinks(); renderTasks();
     alert(`已將「${chosen}」改為「${name}」`);
   }else if(action==='2'){
-    if(!confirm(`確定刪除分類「${chosen}」？\n（所有使用此分類的項目將改為未分類）`)) return;
+    if(!confirm(`確定刪除分類「${chosen}」？\n（使用此分類的項目將改為未分類）`)) return;
     pool.splice(idx,1);
     const apply = (arr)=> arr.forEach(x=>{ if(x.category===chosen) x.category=''; });
     if(isTask) apply(state.tasks); else apply(state.links);
@@ -113,7 +103,7 @@ function manageCategories(){
   }
 }
 
-/* ---------- Links CRUD & Render ---------- */
+/* ===== Links ===== */
 function addLink({url,title,category,tags}){
   if(!url) throw new Error('missing_url');
   const item = { id:uid(), url, title:(title||url), category:(category||''), tags:normTags(tags).join(','), image:'', createdAt:nowISO(), updatedAt:nowISO(), isDeleted:false };
@@ -132,6 +122,78 @@ function deleteLink(id){
   const it = state.links.find(x=>x.id===id); if(!it) return;
   it.isDeleted = true; it.updatedAt = nowISO(); saveDB(); renderLinks();
 }
+
+/* ===== Tasks ===== */
+function addTask({title,dueDate,category,tags}){
+  if(!title) throw new Error('missing_title');
+  const t = { id:uid(), title, notes:'', createdAt:nowISO(), dueDate:(dueDate||''), status:false, category:(category||''), tags:normTags(tags).join(','), updatedAt:nowISO(), isDeleted:false };
+  state.tasks.push(t); saveDB(); renderTasks();
+}
+function updateTask(p){
+  const i = state.tasks.findIndex(x=>x.id===p.id); if(i<0) return;
+  const t = state.tasks[i];
+  if(p.title!=null) t.title=p.title;
+  if(p.dueDate!=null) t.dueDate=p.dueDate;
+  if(p.status!=null) t.status=!!p.status;
+  if(p.category!=null) t.category=p.category;
+  if(p.tags!=null) t.tags=normTags(p.tags).join(',');
+  t.updatedAt=nowISO(); saveDB(); renderTasks();
+}
+function toggleTask(id){ const t=state.tasks.find(x=>x.id===id); if(!t) return; t.status=!t.status; t.updatedAt=nowISO(); saveDB(); renderTasks(); }
+function deleteTask(id){ const t=state.tasks.find(x=>x.id===id); if(!t) return; t.isDeleted=true; t.updatedAt=nowISO(); saveDB(); renderTasks(); }
+
+/* ===== 渲染（含「標籤折疊」） ===== */
+const TAG_VISIBLE_MAX = 4;
+
+function makeTagsFrag(tagArr){
+  const frag = document.createDocumentFragment();
+  const wrap = document.createElement('div');
+  wrap.className='tags';
+
+  const total = tagArr.length;
+  const visible = Math.min(TAG_VISIBLE_MAX, total);
+
+  // 先放可見的
+  for(let i=0;i<visible;i++){
+    const s = document.createElement('span');
+    s.className = 'tag ' + tagClassByIndex(i);
+    s.textContent = tagArr[i];
+    wrap.appendChild(s);
+  }
+
+  if(total > TAG_VISIBLE_MAX){
+    // 隱藏區
+    const hiddenBox = document.createElement('span');
+    hiddenBox.style.display='none';
+    for(let i=TAG_VISIBLE_MAX;i<total;i++){
+      const s = document.createElement('span');
+      s.className = 'tag ' + tagClassByIndex(i);
+      s.textContent = tagArr[i];
+      hiddenBox.appendChild(s);
+    }
+    wrap.appendChild(hiddenBox);
+
+    // 控制鈕
+    const moreBtn = document.createElement('button');
+    moreBtn.className='tag-more';
+    moreBtn.textContent = `展開全部（${total}）`;
+    moreBtn.onclick = ()=>{
+      const opened = hiddenBox.style.display==='inline';
+      if(opened){
+        hiddenBox.style.display='none';
+        moreBtn.textContent = `展開全部（${total}）`;
+      }else{
+        hiddenBox.style.display='inline';
+        moreBtn.textContent = '收起';
+      }
+    };
+    wrap.appendChild(moreBtn);
+  }
+
+  frag.appendChild(wrap);
+  return frag;
+}
+
 function renderLinks(){
   const q = ($('#q').value||'').toLowerCase();
   const fcat = ($('#filterCategorySelect').value||'').trim();
@@ -167,8 +229,7 @@ function renderLinks(){
 
     const urlLine = document.createElement('div'); urlLine.className='meta'; urlLine.textContent = it.url;
 
-    const tags = document.createElement('div'); tags.className='tags';
-    for(const t of normTags(it.tags)){ const s=document.createElement('span'); s.className='tag'; s.textContent=t; tags.appendChild(s); }
+    const tagFrag = makeTagsFrag(normTags(it.tags));
 
     const actions = document.createElement('div'); actions.className='actions';
     const edit = document.createElement('button'); edit.className='btn ghost'; edit.textContent='編輯';
@@ -182,29 +243,10 @@ function renderLinks(){
     del.onclick=()=>{ if(confirm('確定刪除？')) deleteLink(it.id); };
 
     actions.append(edit, del);
-    card.append(head, meta, urlLine, tags, actions);
+    card.append(head, meta, urlLine, tagFrag, actions);
     box.appendChild(card);
   }
 }
-
-/* ---------- Tasks CRUD & Render ---------- */
-function addTask({title,dueDate,category,tags}){
-  if(!title) throw new Error('missing_title');
-  const t = { id:uid(), title, notes:'', createdAt:nowISO(), dueDate:(dueDate||''), status:false, category:(category||''), tags:normTags(tags).join(','), updatedAt:nowISO(), isDeleted:false };
-  state.tasks.push(t); saveDB(); renderTasks();
-}
-function updateTask(p){
-  const i = state.tasks.findIndex(x=>x.id===p.id); if(i<0) return;
-  const t = state.tasks[i];
-  if(p.title!=null) t.title=p.title;
-  if(p.dueDate!=null) t.dueDate=p.dueDate;
-  if(p.status!=null) t.status=!!p.status;
-  if(p.category!=null) t.category=p.category;
-  if(p.tags!=null) t.tags=normTags(p.tags).join(',');
-  t.updatedAt=nowISO(); saveDB(); renderTasks();
-}
-function toggleTask(id){ const t=state.tasks.find(x=>x.id===id); if(!t) return; t.status=!t.status; t.updatedAt=nowISO(); saveDB(); renderTasks(); }
-function deleteTask(id){ const t=state.tasks.find(x=>x.id===id); if(!t) return; t.isDeleted=true; t.updatedAt=nowISO(); saveDB(); renderTasks(); }
 
 function renderTasks(){
   const mode = $('#taskView').value || 'all';
@@ -233,8 +275,7 @@ function renderTasks(){
     const meta = document.createElement('div'); meta.className='meta';
     meta.textContent = `建立：${new Date(t.createdAt).toLocaleString()} · 到期：${t.dueDate||'未設定'} · 分類：${t.category||'（未填）'}`;
 
-    const tags = document.createElement('div'); tags.className='tags';
-    for(const g of normTags(t.tags)){ const s=document.createElement('span'); s.className='tag'; s.textContent=g; tags.appendChild(s); }
+    const tagFrag = makeTagsFrag(normTags(t.tags));
 
     const actions = document.createElement('div'); actions.className='actions';
     const edit = document.createElement('button'); edit.className='btn ghost'; edit.textContent='編輯';
@@ -249,14 +290,14 @@ function renderTasks(){
     del.onclick=()=>{ if(confirm('確定刪除此任務？')) deleteTask(t.id); };
 
     actions.append(edit, del);
-    card.append(row, meta, tags, actions);
+    card.append(row, meta, tagFrag, actions);
     wrap.appendChild(card);
   }
 }
 
-/* ---------- 匯出／匯入 ---------- */
+/* ===== 匯出／匯入 ===== */
 function exportJSON(){
-  const blob = new Blob([JSON.stringify({version:3, ...state, linkCats, taskCats}, null, 2)], {type:'application/json'});
+  const blob = new Blob([JSON.stringify({version:4, ...state, linkCats, taskCats}, null, 2)], {type:'application/json'});
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
   a.download = `whitecoating-${new Date().toISOString().slice(0,10)}.json`;
   a.click(); URL.revokeObjectURL(a.href);
@@ -279,7 +320,7 @@ function importJSON(file){
   r.readAsText(file);
 }
 
-/* ---------- 綁定 ---------- */
+/* ===== 綁定 ===== */
 document.addEventListener('DOMContentLoaded', ()=>{
   loadDB();
   renderCategorySelectors();
@@ -338,18 +379,15 @@ document.addEventListener('DOMContentLoaded', ()=>{
   $('#exportBtn').onclick = exportJSON;
   $('#importFile').onchange = (e)=>{ const f=e.target.files?.[0]; if(f) importJSON(f); };
 
-  // FAB 快捷新增（帶入剪貼簿 URL 若可）
+  // FAB 快捷新增
   $('#fabAddLink').onclick = async ()=>{
-    let clip='';
-    try{ clip = (await navigator.clipboard.readText()) || ''; }catch{}
+    let clip=''; try{ clip = (await navigator.clipboard.readText()) || ''; }catch{}
     const u = prompt('貼上連結 URL：', clip);
     if(!u) return;
     addLink({url:u, title:'', category:$('#categorySelect').value, tags:''});
   };
 
-  // 管理分類
   $('#manageCatsBtn').onclick = manageCategories;
 
-  // 初次渲染
   renderLinks(); renderTasks();
 });
